@@ -33,10 +33,10 @@ SERVER_PORT      = 60403
 LOGS_PATH        = r"C:\Users\TU_USUARIO\Zomboid\Logs"
 
 # IDs de canales — reemplaza con los IDs reales de tu Discord
-CHANNEL_LOGS     = 0    # canal #logs-servidor
-CHANNEL_WELCOME  = 0    # canal #bienvenida
-CHANNEL_ANUNCIOS = 0    # canal #anuncios
-CHANNEL_GENERAL  = 0    # canal #general
+CHANNEL_LOGS     = 1511504723801411806
+CHANNEL_WELCOME  = 1511505540872929300
+CHANNEL_ANUNCIOS = 1511505569918222479
+CHANNEL_GENERAL  = 1511505594064834701
 
 # ─────────────────────────────────────────
 #   SETUP DEL BOT
