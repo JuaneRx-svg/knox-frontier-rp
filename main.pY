@@ -25,7 +25,7 @@ PREFIX           = "!"
 PZ_EXE_PATH      = r"C:\ruta\al\servidor\StartServer64.bat"
 RCON_HOST        = "127.0.0.1"
 RCON_PORT        = 27015
-RCON_PASSWORD    = "TU_PASSWORD_RCON"
+RCON_PASSWORD    = "only2830"
 SERVER_PUBLIC_IP = "92.38.150.78"
 SERVER_PORT      = 60403
 
