@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knox Frontier RP — Project Zomboid</title>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECURITY HEADERS (meta equivalents)
+     Para producción, reforzar también con headers HTTP reales
+     en nginx/Apache/Cloudflare para máxima protección.
+     ═══════════════════════════════════════════════════════════ -->
+
+<!-- Content Security Policy
+     default-src 'self'        → solo recursos del mismo origen
+     style-src  + Google Fonts → permite CSS de Google Fonts
+     font-src   gstatic        → permite archivos de fuentes
+     script-src 'nonce-...'    → solo scripts con nonce válido
+     img-src    data:          → imágenes propias + data URIs
+     frame-ancestors 'none'   → bloquea clickjacking / iframes
+     base-uri   'self'         → previene inyección de base tag
+     form-action 'none'        → sin formularios secuestrables
+     upgrade-insecure-requests → fuerza HTTPS
+-->
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; script-src 'self' 'nonce-KFrp9x2025Sec'; img-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests;">
+
+<!-- Evita ataques MIME-type sniffing -->
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+
+<!-- Protección clickjacking legacy (complementa frame-ancestors) -->
+<meta http-equiv="X-Frame-Options" content="DENY">
+
+<!-- No filtrar URL de referencia a sitios externos -->
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+
+<!-- Deshabilita APIs del navegador que no se usan -->
+<meta http-equiv="Permissions-Policy"
+  content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), interest-cohort=()">
+
+<!-- Fuerza modo estándar en IE (vector XSS legacy) -->
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+<!-- Google Fonts con crossorigin y sin referrer leaks -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;900&family=Work+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
+      rel="stylesheet" referrerpolicy="no-referrer">
+<style>
+/* ─── VARIABLES ─────────────────────────────────────────────── */
+:root {
+  --red:       #c0392b;
+  --red-b:     #e74c3c;
+  --red-dim:   rgba(192,57,43,0.15);
+  --gold:      #d4ac2a;
+  --green:     #27ae60;
+  --blue:      #2980b9;
+  --bg:        #09090b;
+  --bg2:       #0f0f12;
+  --bg3:       #141418;
+  --bg4:       #1a1a1f;
+  --line:      #222228;
+  --text:      #c8c8d4;
+  --muted:     #6a6a7a;
+  --white:     #f0f0f5;
+  --font-display: 'Big Shoulders Display', sans-serif;
+  --font-body:    'Work Sans', sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+}
+
+/* ─── RESET ──────────────────────────────────────────────────── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  cursor: default;
+}
+
+/* ─── SCROLLBAR ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--red); }
+
+/* ─── NOISE OVERLAY ──────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  opacity: 0.022;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ─── ANIMATIONS ─────────────────────────────────────────────── */
+@keyframes fadeUp   { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:none; } }
+@keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
+@keyframes pulse    { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+@keyframes scanline { from { transform:translateY(-100%); } to { transform:translateY(100vh); } }
+@keyframes glitch1  { 0%,100%{clip-path:none;transform:none} 92%{clip-path:polygon(0 10%,100% 10%,100% 30%,0 30%);transform:translate(-4px,0)} 94%{clip-path:polygon(0 60%,100% 60%,100% 80%,0 80%);transform:translate(4px,0)} 96%{clip-path:none;transform:none} }
+@keyframes blink    { 0%,100%{opacity:1} 50%{opacity:0} }
+@keyframes barFill  { from{width:0} to{width:var(--w)} }
+
+/* ─── SCANLINE FX ────────────────────────────────────────────── */
+.scanline-fx {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 2px;
+  background: linear-gradient(transparent, rgba(192,57,43,0.08), transparent);
+  animation: scanline 8s linear infinite;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+/* ─── NAV ─────────────────────────────────────────────────────── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+  background: rgba(9,9,11,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+  padding: 0 48px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  animation: fadeIn 0.6s ease both;
+}
+
+.nav-brand {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: var(--white);
+}
+.nav-brand span { color: var(--red); }
+
+.nav-links {
+  display: flex;
+  gap: 32px;
+  list-style: none;
+}
+.nav-links a {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--white); }
+
+.nav-cta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--red-b);
+  border: 1px solid var(--red);
+  padding: 7px 18px;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: all 0.2s;
+  background: rgba(192,57,43,0.05);
+}
+.nav-cta:hover { background: var(--red); color: #fff; }
+
+/* ─── HERO ────────────────────────────────────────────────────── */
+#hero {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  position: relative;
+  overflow: hidden;
+  padding-top: 56px;
+}
+
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 80% at 20% 50%, rgba(192,57,43,0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 60% at 80% 20%, rgba(192,57,43,0.04) 0%, transparent 60%);
+}
+
+/* grid lines */
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.35;
+}
+
+/* diagonal accent */
+.hero-diagonal {
+  position: absolute;
+  top: 0; right: 48%;
+  width: 2px; height: 100%;
+  background: linear-gradient(to bottom, var(--red) 0%, rgba(192,57,43,0.2) 50%, transparent 100%);
+  opacity: 0.3;
+}
+
+.hero-left {
+  position: relative;
+  z-index: 2;
+  padding: 80px 60px 80px 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.hero-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.35em;
+  color: var(--muted);
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hero-label::before { content: '//'; color: var(--red); }
+
+.hero-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  line-height: 0.9;
+  margin-bottom: 32px;
+  animation: fadeUp 0.8s 0.2s ease both;
+}
+.hero-title .l1 { display: block; font-size: clamp(80px, 10vw, 128px); color: var(--white); animation: glitch1 8s 2s infinite; }
+.hero-title .l2 { display: block; font-size: clamp(80px, 10vw, 128px); color: var(--red); letter-spacing: 0.04em; }
+.hero-title .l3 { display: block; font-size: clamp(60px, 8vw, 96px); color: var(--white); opacity: 0.7; }
+
+.hero-desc {
+  font-size: 16px;
+  color: var(--text);
+  max-width: 440px;
+  line-height: 1.7;
+  margin-bottom: 40px;
+  animation: fadeUp 0.8s 0.4s ease both;
+}
+.hero-desc strong { color: var(--white); }
+
+.hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 40px;
+  animation: fadeUp 0.8s 0.5s ease both;
+}
+
+.tag {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  padding: 5px 13px;
+  border: 1px solid;
+  text-transform: uppercase;
+}
+.tag-red    { color: var(--red-b);  border-color: rgba(192,57,43,0.4); background: rgba(192,57,43,0.06); }
+.tag-blue   { color: #5dade2;       border-color: rgba(52,152,219,0.3); background: rgba(52,152,219,0.05); }
+.tag-gold   { color: var(--gold);   border-color: rgba(212,172,42,0.3); background: rgba(212,172,42,0.05); }
+.tag-green  { color: #2ecc71;       border-color: rgba(39,174,96,0.3);  background: rgba(39,174,96,0.05); }
+.tag-orange { color: #e67e22;       border-color: rgba(230,126,34,0.3); background: rgba(230,126,34,0.05); }
+
+.hero-actions {
+  display: flex;
+  gap: 16px;
+  animation: fadeUp 0.8s 0.6s ease both;
+}
+
+.btn-primary {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 14px 32px;
+  background: var(--red);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+.btn-primary:hover { background: var(--red-b); transform: translateY(-2px); }
+
+.btn-secondary {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 14px 32px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.btn-secondary:hover { color: var(--white); border-color: var(--muted); }
+
+/* ─── HERO RIGHT ─────────────────────────────────────────────── */
+.hero-right {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px 80px 80px 60px;
+  animation: fadeUp 0.8s 0.3s ease both;
+}
+
+.server-card {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+}
+.server-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--red) 0%, rgba(192,57,43,0.3) 100%);
+}
+
+.card-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: var(--muted);
+  margin-bottom: 20px;
+}
+.card-label span { color: var(--red); }
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--line);
+  margin-bottom: 24px;
+}
+.stat-cell {
+  background: var(--bg3);
+  padding: 20px 16px;
+  text-align: center;
+}
+.stat-val {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 900;
+  display: block;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.stat-val.r { color: var(--red-b); }
+.stat-val.g { color: var(--gold); }
+.stat-val.b { color: #5dade2; }
+.stat-lbl {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.modality-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.mod-block {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  position: relative;
+  overflow: hidden;
+}
+.mod-block::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+.mod-rp::before  { background: var(--blue); }
+.mod-pvp::before { background: var(--red); }
+.mod-rp  { background: rgba(52,152,219,0.04); }
+.mod-pvp { background: rgba(192,57,43,0.04); }
+
+.mod-days {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 4px;
+}
+.mod-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  padding: 2px 8px;
+  margin-bottom: 6px;
+}
+.mod-badge-rp  { background: rgba(52,152,219,0.15); color: #5dade2; border: 1px solid rgba(52,152,219,0.3); }
+.mod-badge-pvp { background: rgba(192,57,43,0.15);  color: var(--red-b); border: 1px solid rgba(192,57,43,0.4); }
+.mod-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+.connection-block {
+  background: var(--bg4);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--red);
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.conn-group { }
+.conn-lbl {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.25em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.conn-val {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: var(--white);
+  letter-spacing: 0.06em;
+}
+.conn-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--line);
+}
+.conn-steps {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  line-height: 1.9;
+  text-align: right;
+}
+.conn-steps span { color: var(--red); }
+
+/* ─── SECTION BASE ───────────────────────────────────────────── */
+section {
+  padding: 100px 80px;
+  position: relative;
+}
+section + section {
+  border-top: 1px solid var(--line);
+}
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.35em;
+  color: var(--muted);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-label::before { content: '//'; color: var(--red); }
+
+.section-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(40px, 5vw, 64px);
+  color: var(--white);
+  line-height: 0.95;
+  margin-bottom: 24px;
+}
+.section-title span { color: var(--red); }
+
+.section-sub {
+  font-size: 16px;
+  color: var(--text);
+  max-width: 600px;
+  line-height: 1.7;
+  margin-bottom: 60px;
+}
+
+/* ─── FEATURES SECTION ───────────────────────────────────────── */
+#features { background: var(--bg2); }
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--line);
+}
+
+.feature-card {
+  background: var(--bg);
+  padding: 36px 32px;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.3s;
+}
+.feature-card:hover { background: var(--bg3); }
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 2px;
+  height: 0;
+  background: var(--red);
+  transition: height 0.3s;
+}
+.feature-card:hover::before { height: 100%; }
+
+.feature-num {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--red);
+  margin-bottom: 16px;
+  letter-spacing: 0.1em;
+}
+.feature-icon {
+  font-size: 28px;
+  margin-bottom: 14px;
+  display: block;
+}
+.feature-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 10px;
+  letter-spacing: 0.02em;
+}
+.feature-desc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* ─── RULES SECTION ──────────────────────────────────────────── */
+#rules { background: var(--bg); }
+
+.rules-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 32px;
+}
+
+.rule-group { }
+.rule-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
+}
+.rule-group-icon { font-size: 16px; }
+.rule-group-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.rule-item {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(34,34,40,0.6);
+}
+.rule-item:last-child { border-bottom: none; margin-bottom: 0; }
+
+.rule-num {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--red);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.rule-content { flex: 1; }
+.rule-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+.rule-text strong { color: var(--white); }
+
+.rule-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 0.15em;
+  padding: 2px 7px;
+  border: 1px solid;
+}
+.badge-warn { color: var(--gold);  border-color: rgba(212,172,42,0.3);  background: rgba(212,172,42,0.05); }
+.badge-ban  { color: var(--red-b); border-color: rgba(192,57,43,0.4);   background: rgba(192,57,43,0.06); }
+
+/* ─── QUICK RULES ────────────────────────────────────────────── */
+.quick-rules {
+  margin-top: 60px;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  padding: 32px 40px;
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr;
+  gap: 12px 40px;
+  align-items: start;
+}
+.qr-header {
+  grid-column: 1/-1;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: var(--muted);
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+.qr-header span { color: var(--red); }
+
+.qr-item {
+  display: contents;
+}
+.qr-sym {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.qr-sym.ok { color: #2ecc71; }
+.qr-sym.no { color: var(--red-b); }
+.qr-txt {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.6;
+}
+.qr-txt strong { color: var(--white); }
+
+/* ─── JOIN SECTION ───────────────────────────────────────────── */
+#join {
+  background: var(--bg2);
+  text-align: center;
+}
+
+.join-inner {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.join-ip-block {
+  margin: 48px auto;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--red);
+  padding: 36px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0;
+  text-align: left;
+  max-width: 560px;
+}
+.join-ip-cell { padding: 0 28px; }
+.join-ip-cell:first-child { padding-left: 0; }
+.join-ip-cell:last-child { padding-right: 0; }
+.join-divider {
+  width: 1px;
+  background: var(--line);
+  align-self: stretch;
+}
+.join-ip-lbl {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.join-ip-val {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  color: var(--white);
+  letter-spacing: 0.05em;
+}
+
+.join-steps {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 48px;
+}
+.join-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  max-width: 180px;
+  position: relative;
+}
+.join-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 18px;
+  right: -50%;
+  width: 100%;
+  height: 1px;
+  background: var(--line);
+}
+.step-num {
+  width: 36px; height: 36px;
+  border: 1px solid var(--red);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--red);
+  margin-bottom: 12px;
+  background: rgba(192,57,43,0.06);
+  position: relative;
+  z-index: 1;
+}
+.step-txt {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.4;
+}
+.step-txt strong { color: var(--text); display: block; }
+
+/* ─── FOOTER ─────────────────────────────────────────────────── */
+footer {
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  padding: 32px 80px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.footer-brand {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--white);
+  letter-spacing: 0.05em;
+}
+.footer-brand span { color: var(--red); }
+
+.footer-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+}
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse 2s infinite;
+}
+
+.footer-copy {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.15em;
+}
+
+/* ─── REVEAL ANIMATIONS ──────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: none;
+}
+.reveal-d1 { transition-delay: 0.1s; }
+.reveal-d2 { transition-delay: 0.2s; }
+.reveal-d3 { transition-delay: 0.3s; }
+.reveal-d4 { transition-delay: 0.4s; }
+.reveal-d5 { transition-delay: 0.5s; }
+
+/* ─── DIVIDER ────────────────────────────────────────────────── */
+.h-divider {
+  height: 1px;
+  background: linear-gradient(90deg, var(--red) 0%, rgba(192,57,43,0.3) 30%, transparent 100%);
+  margin-bottom: 60px;
+}
+
+/* ─── MOBILE ─────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  nav { padding: 0 24px; }
+  .nav-links { display: none; }
+  #hero { grid-template-columns: 1fr; }
+  .hero-left { padding: 60px 24px; }
+  .hero-right { padding: 40px 24px; }
+  section { padding: 60px 24px; }
+  .features-grid { grid-template-columns: 1fr; }
+  .rules-layout { grid-template-columns: 1fr; }
+  .quick-rules { grid-template-columns: auto 1fr; }
+  .join-ip-block { grid-template-columns: 1fr; gap: 24px; }
+  .join-divider { display: none; }
+  .join-steps { flex-direction: column; align-items: center; gap: 20px; }
+  .join-step::after { display: none; }
+  footer { flex-direction: column; gap: 16px; text-align: center; padding: 24px; }
+}
+</style>
+</head>
+<body>
+
+<div class="scanline-fx"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">KNOX <span>FRONTIER</span> RP</div>
+  <ul class="nav-links">
+    <li><a href="#features">Características</a></li>
+    <li><a href="#rules">Reglas</a></li>
+    <li><a href="#join">Unirse</a></li>
+  </ul>
+  <a href="#join" class="nav-cta">Conectar</a>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-diagonal"></div>
+
+  <div class="hero-left">
+    <div class="hero-label">PROJECT ZOMBOID — COMMUNITY SERVER</div>
+    <h1 class="hero-title">
+      <span class="l1">KNOX</span>
+      <span class="l2">FRONTIER</span>
+      <span class="l3">RP</span>
+    </h1>
+    <p class="hero-desc">
+      <strong>Comunidad de amigos y supervivencia cooperativa</strong> con conflictos entre facciones cuando la historia lo requiera. Forja tu camino: alianzas, traiciones, territorios y consecuencias reales.
+    </p>
+    <div class="hero-tags">
+      <span class="tag tag-red">PvE + PvP</span>
+      <span class="tag tag-blue">Roleplay</span>
+      <span class="tag tag-gold">x2 XP</span>
+      <span class="tag tag-green">Build 42.19</span>
+      <span class="tag tag-orange">Mods QoL</span>
+    </div>
+    <div class="hero-actions">
+      <a href="#join" class="btn-primary">Unirse ahora</a>
+      <a href="#rules" class="btn-secondary" rel="noopener noreferrer">Ver reglas</a>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="server-card">
+      <div class="card-label"><span>//</span> INFORMACIÓN DEL SERVIDOR</div>
+
+      <div class="stats-grid">
+        <div class="stat-cell">
+          <span class="stat-val r">30</span>
+          <span class="stat-lbl">Cupos totales</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-val g">+20</span>
+          <span class="stat-lbl">Mods instalados</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-val b">24/7</span>
+          <span class="stat-lbl">Servidor activo</span>
+        </div>
+      </div>
+
+      <div class="modality-row">
+        <div class="mod-block mod-rp">
+          <div class="mod-days">TODOS LOS DÍAS</div>
+          <span class="mod-badge mod-badge-rp">ROLEPLAY — ENFOQUE PRINCIPAL</span>
+          <p class="mod-desc">Tu historia es lo primero. Forja alianzas, crea facciones y vive el apocalipsis desde adentro.</p>
+        </div>
+        <div class="mod-block mod-pvp">
+          <div class="mod-days">TODOS LOS DÍAS</div>
+          <span class="mod-badge mod-badge-pvp">PvP ACTIVO</span>
+          <p class="mod-desc">El conflicto debe tener sentido. PvP con motivo dentro del roleplay, no aleatorio.</p>
+        </div>
+      </div>
+
+      <div class="connection-block">
+        <div class="conn-group">
+          <div class="conn-lbl">DIRECCIÓN IP</div>
+          <div class="conn-val">92.38.150.78</div>
+        </div>
+        <div class="conn-divider"></div>
+        <div class="conn-group">
+          <div class="conn-lbl">PUERTO</div>
+          <div class="conn-val">60403</div>
+        </div>
+        <div class="conn-divider"></div>
+        <div class="conn-steps">
+          <span>→</span> UNIRSE AL SERVIDOR<br>
+          <span>→</span> AÑADIR SERVIDOR<br>
+          <span>→</span> INGRESAR IP Y PUERTO
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-label reveal">CARACTERÍSTICAS</div>
+  <h2 class="section-title reveal reveal-d1">TODO LO QUE<br><span>NECESITAS</span></h2>
+  <p class="section-sub reveal reveal-d2">Un servidor diseñado para quienes buscan más que sobrevivir. Aquí cada decisión tiene peso, cada alianza tiene valor y cada muerte tiene historia.</p>
+  <div class="h-divider"></div>
+
+  <div class="features-grid">
+    <div class="feature-card reveal reveal-d1">
+      <div class="feature-num">01</div>
+      <span class="feature-icon">⚔️</span>
+      <div class="feature-title">PvE + PvP</div>
+      <p class="feature-desc">Roleplay como enfoque principal, PvP disponible todos los días pero siempre con contexto dentro de la historia. Conflicto con sentido, no caos.</p>
+    </div>
+    <div class="feature-card reveal reveal-d2">
+      <div class="feature-num">02</div>
+      <span class="feature-icon">📜</span>
+      <div class="feature-title">Roleplay Profundo</div>
+      <p class="feature-desc">Crea personajes con historia, forma facciones con motivaciones reales y vive el apocalipsis desde adentro.</p>
+    </div>
+    <div class="feature-card reveal reveal-d3">
+      <div class="feature-num">03</div>
+      <span class="feature-icon">⚡</span>
+      <div class="feature-title">x2 Experiencia</div>
+      <p class="feature-desc">Progresa el doble de rápido. Menos grind, más historia. Enfocado en que el juego sea disfrutable desde el primer día.</p>
+    </div>
+    <div class="feature-card reveal reveal-d1">
+      <div class="feature-num">04</div>
+      <span class="feature-icon">🔧</span>
+      <div class="feature-title">+20 Mods QoL</div>
+      <p class="feature-desc">Mods seleccionados para mejorar la experiencia sin romper el balance. Build 42.19 con las últimas mejoras del juego.</p>
+    </div>
+    <div class="feature-card reveal reveal-d2">
+      <div class="feature-num">05</div>
+      <span class="feature-icon">🏰</span>
+      <div class="feature-title">Facciones y Alianzas</div>
+      <p class="feature-desc">Crea tu grupo, establece territorio, negocia o declara guerra. La política del apocalipsis la escribes tú.</p>
+    </div>
+    <div class="feature-card reveal reveal-d3">
+      <div class="feature-num">06</div>
+      <span class="feature-icon">🛡️</span>
+      <div class="feature-title">Admins Activos</div>
+      <p class="feature-desc">Equipo presente 24/7 para resolver problemas, organizar eventos y mantener la comunidad limpia y funcional.</p>
+    </div>
+  </div>
+</section>
+
+<!-- RULES -->
+<section id="rules">
+  <div class="section-label reveal">REGLAMENTO</div>
+  <h2 class="section-title reveal reveal-d1">REGLAS<br><span>DEL SERVIDOR</span></h2>
+  <p class="section-sub reveal reveal-d2">Normas claras para una comunidad sana. El respeto y el roleplay son la base de Knox Frontier RP.</p>
+  <div class="h-divider"></div>
+
+  <div class="rules-layout">
+    <!-- General -->
+    <div class="rule-group reveal reveal-d1">
+      <div class="rule-group-header">
+        <span class="rule-group-icon">⚠️</span>
+        <span class="rule-group-title">Reglas Generales</span>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">01</span>
+        <div class="rule-content">
+          <div class="rule-text"><strong>Respeto absoluto</strong> entre todos en todo momento.</div>
+          <span class="rule-badge badge-warn">WARN</span>
+        </div>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">02</span>
+        <div class="rule-content">
+          <div class="rule-text">Tolerancia <strong>cero</strong> ante hacks, exploits o trampas.</div>
+          <span class="rule-badge badge-ban">BAN</span>
+        </div>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">03</span>
+        <div class="rule-content">
+          <div class="rule-text">Acoso, toxicidad y discriminación <strong>no se toleran</strong>.</div>
+          <span class="rule-badge badge-ban">BAN</span>
+        </div>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">04</span>
+        <div class="rule-content">
+          <div class="rule-text">Decisiones de <strong>administradores</strong> son finales.</div>
+          <span class="rule-badge badge-warn">WARN</span>
+        </div>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">05</span>
+        <div class="rule-content">
+          <div class="rule-text">Problemas: <strong>abrir ticket</strong>. No en el chat.</div>
+          <span class="rule-badge badge-warn">WARN</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PvP -->
+    <div class="rule-group reveal reveal-d2">
+      <div class="rule-group-header">
+        <span class="rule-group-icon">⚔️</span>
+        <span class="rule-group-title">Reglas de PvP</span>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">01</span>
+        <div class="rule-content">
+          <div class="rule-text">El PvP está <strong>permitido todos los días</strong>, pero debe tener una razón dentro del roleplay.</div>
+          <span class="rule-badge badge-ban">BAN</span>
+        </div>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">02</span>
+        <div class="rule-content">
+          <div class="rule-text">Prohibido matar jugadores <strong>nuevos</strong> en sus primeras 24h.</div>
+          <span class="rule-badge badge-warn">WARN</span>
+        </div>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">03</span>
+        <div class="rule-content">
+          <div class="rule-text">Sin <strong>spawn killing</strong> ni atacar recién conectados.</div>
+          <span class="rule-badge badge-ban">BAN</span>
+        </div>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">04</span>
+        <div class="rule-content">
+          <div class="rule-text">No <strong>robar bases</strong> ni griefing en días de RP.</div>
+          <span class="rule-badge badge-ban">BAN</span>
+        </div>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">05</span>
+        <div class="rule-content">
+          <div class="rule-text"><strong>Combat logging</strong> prohibido.</div>
+          <span class="rule-badge badge-ban">BAN</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Roleplay -->
+    <div class="rule-group reveal reveal-d3">
+      <div class="rule-group-header">
+        <span class="rule-group-icon">🎭</span>
+        <span class="rule-group-title">Reglas de Roleplay</span>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">01</span>
+        <div class="rule-content">
+          <div class="rule-text">Mantén tu <strong>personaje</strong> en días de Roleplay.</div>
+          <span class="rule-badge badge-warn">WARN</span>
+        </div>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">02</span>
+        <div class="rule-content">
+          <div class="rule-text">Prohibido el <strong>metagaming</strong>.</div>
+          <span class="rule-badge badge-warn">WARN</span>
+        </div>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">03</span>
+        <div class="rule-content">
+          <div class="rule-text">Prohibido el <strong>powergaming</strong>.</div>
+          <span class="rule-badge badge-warn">WARN</span>
+        </div>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">04</span>
+        <div class="rule-content">
+          <div class="rule-text">Respeta la <strong>historia y decisiones</strong> de otros.</div>
+          <span class="rule-badge badge-warn">WARN</span>
+        </div>
+      </div>
+      <div class="rule-item">
+        <span class="rule-num">05</span>
+        <div class="rule-content">
+          <div class="rule-text">Respeta acuerdos de <strong>facciones y alianzas</strong>.</div>
+          <span class="rule-badge badge-warn">WARN</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Rules -->
+  <div class="quick-rules reveal">
+    <div class="qr-header"><span>//</span> RESUMEN RÁPIDO</div>
+    <span class="qr-sym ok">✓</span><span class="qr-txt"><strong>Roleplay</strong></span>
+    <span class="qr-sym no">✕</span><span class="qr-txt"><strong>Metagaming</strong></span>
+    <span class="qr-sym ok">✓</span><span class="qr-txt"><strong>PvP con motivo</strong></span>
+    <span class="qr-sym no">✕</span><span class="qr-txt"><strong>Exploits</strong></span>
+    <span class="qr-sym ok">✓</span><span class="qr-txt"><strong>Comercio y alianzas</strong></span>
+    <span class="qr-sym no">✕</span><span class="qr-txt"><strong>Combat Logging</strong></span>
+    <span class="qr-sym ok">✓</span><span class="qr-txt"><strong>Conflictos entre facciones</strong></span>
+    <span class="qr-sym no">✕</span><span class="qr-txt"><strong>Toxicidad / Griefing</strong></span>
+  </div>
+</section>
+
+<!-- JOIN -->
+<section id="join">
+  <div class="join-inner">
+    <div class="section-label reveal" style="justify-content:center">CONEXIÓN AL SERVIDOR</div>
+    <h2 class="section-title reveal reveal-d1" style="text-align:center">¿LISTO PARA<br><span>SOBREVIVIR?</span></h2>
+    <p class="section-sub reveal reveal-d2" style="margin:0 auto 0; text-align:center">La civilización cayó. Tú decides qué viene después. Únete a Knox Frontier RP y escribe tu historia en el apocalipsis.</p>
+
+    <div class="join-ip-block reveal reveal-d3">
+      <div class="join-ip-cell">
+        <div class="join-ip-lbl">DIRECCIÓN IP</div>
+        <div class="join-ip-val">92.38.150.78</div>
+      </div>
+      <div class="join-divider"></div>
+      <div class="join-ip-cell">
+        <div class="join-ip-lbl">PUERTO</div>
+        <div class="join-ip-val">60403</div>
+      </div>
+    </div>
+
+    <div class="join-steps reveal reveal-d4">
+      <div class="join-step">
+        <div class="step-num">01</div>
+        <div class="step-txt"><strong>Abre Project Zomboid</strong> Build 42.19 o superior</div>
+      </div>
+      <div class="join-step">
+        <div class="step-num">02</div>
+        <div class="step-txt"><strong>Ve a Unirse a Servidor</strong> y selecciona Añadir</div>
+      </div>
+      <div class="join-step">
+        <div class="step-num">03</div>
+        <div class="step-txt"><strong>Ingresa la IP y Puerto</strong> y conéctate</div>
+      </div>
+    </div>
+
+    <div class="reveal reveal-d5" style="display:flex;gap:16px;justify-content:center">
+      <a href="#" class="btn-primary">Copiar IP</a>
+      <a href="#rules" class="btn-secondary">Leer Reglas</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-brand">KNOX <span>FRONTIER</span> RP</div>
+  <div class="footer-status">
+    <div class="status-dot"></div>
+    SERVIDOR ACTIVO 24/7
+  </div>
+  <div class="footer-copy">PROJECT ZOMBOID COMMUNITY SERVER</div>
+  <div class="footer-copy" style="color:#27ae60;letter-spacing:0.15em;font-size:8px;">🔒 SECURED</div>
+</footer>
+
+<script nonce="KFrp9x2025Sec">
+/* ═══════════════════════════════════════════════════════════════
+   SECURITY LAYER — Knox Frontier RP
+   ═══════════════════════════════════════════════════════════════ */
+
+(function() {
+  'use strict';
+
+  /* ── 1. ANTI-CLICKJACKING (framebusting)
+     Si la página es cargada dentro de un iframe por un atacante,
+     se fuerza la navegación al top-level. Segunda capa además del
+     CSP frame-ancestors y X-Frame-Options header.            ── */
+  if (window.self !== window.top) {
+    window.top.location = window.self.location;
+  }
+
+  /* ── 2. SANITIZACIÓN ESTRICTA DE CLIPBOARD
+     Solo se permite copiar la IP hardcodeada. Nunca se copian
+     valores dinámicos del DOM que pudieran haber sido inyectados. ── */
+  const ALLOWED_COPY = Object.freeze({
+    ip:   '92.38.150.78',
+    port: '60403'
+  });
+
+  function secureCopy(value, btn) {
+    // Validar que el valor a copiar es exactamente uno de los permitidos
+    const isAllowed = Object.values(ALLOWED_COPY).includes(value);
+    if (!isAllowed) {
+      console.warn('[KFrp Security] Intento de copiar valor no autorizado bloqueado.');
+      return;
+    }
+    if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') return;
+
+    navigator.clipboard.writeText(value).then(() => {
+      const original = btn.textContent;
+      btn.textContent = '¡Copiado!';
+      btn.style.background = '#27ae60';
+      setTimeout(() => {
+        btn.textContent = original;
+        btn.style.background = '';
+      }, 2000);
+    }).catch(() => {
+      // Fallo silencioso — no exponer errores en consola en producción
+    });
+  }
+
+  /* ── 3. EVENT LISTENERS — delegación segura
+     Se usa querySelector con selector fijo, nunca dinámico.      ── */
+  const copyBtn = document.querySelector('.btn-primary[href="#"]');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      secureCopy(ALLOWED_COPY.ip, this);
+    });
+  }
+
+  /* ── 4. SCROLL REVEAL
+     IntersectionObserver — sin eval, sin innerHTML, seguro.      ── */
+  const revealEls = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.12 });
+  revealEls.forEach(function(el) { io.observe(el); });
+
+  /* ── 5. PROTECCIÓN CONTRA DEVTOOLS / CONSOLE INJECTION
+     Advierte si alguien intenta pegar código malicioso en consola. ── */
+  const consoleMsg = [
+    '%c⚠ ADVERTENCIA DE SEGURIDAD',
+    'color:#e74c3c; font-size:22px; font-weight:bold;'
+  ];
+  const consoleMsg2 = [
+    '%cSi alguien te pidió pegar algo aquí, es un ataque de ingeniería social.\nCierra esta ventana inmediatamente.',
+    'color:#f0f0f5; font-size:14px;'
+  ];
+  try {
+    console.log(...consoleMsg);
+    console.log(...consoleMsg2);
+  } catch(_) {}
+
+  /* ── 6. DISABLE RIGHT-CLICK EN ELEMENTOS SENSIBLES (opcional)
+     Previene inspección fácil de la IP en producción.            ── */
+  // Comentado por defecto — descomentar si se desea mayor dureza:
+  // document.addEventListener('contextmenu', e => e.preventDefault());
+
+})();
+</script>
+</body>
+</html>
+<!--
+═══════════════════════════════════════════════════════════════════
+  GUÍA DE DESPLIEGUE SEGURO — Knox Frontier RP
+  Para máxima seguridad, añade estos headers en tu servidor web:
+═══════════════════════════════════════════════════════════════════
+
+  ── NGINX (nginx.conf o server block) ──────────────────────────
+  add_header Content-Security-Policy "default-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; script-src 'self' 'nonce-KFrp9x2025Sec'; img-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests;" always;
+  add_header X-Frame-Options "DENY" always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+  add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+
+  ── APACHE (.htaccess) ─────────────────────────────────────────
+  Header always set X-Frame-Options "DENY"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+  ── CLOUDFLARE (Transform Rules / Headers) ─────────────────────
+  Añadir los mismos headers como Managed Transform Rules en el
+  dashboard de Cloudflare → Rules → Transform Rules → Headers.
+
+═══════════════════════════════════════════════════════════════════
+-->
